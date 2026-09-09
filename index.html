@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Králiček & ovoce — ultra cute 💖</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top, #ffe6f7 0%, #ffd1f0 40%, #ffc6e5 70%, #ffb3dd 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: "Comic Sans MS", system-ui;
+    overflow: hidden;
+  }
+  canvas {
+    background: linear-gradient(#c9f0ff, #ffe9f7);
+    border: 8px solid #ff9ad5;
+    border-radius: 24px;
+    box-shadow: 0 0 35px rgba(255, 150, 200, 0.8);
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+  }
+  #ui {
+    position: absolute;
+    top: 10px;
+    width: 100%;
+    text-align: center;
+    color: #ff4f9a;
+    font-size: 28px;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(255, 150, 200, 0.6);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">Score: <span id="score">0</span></div>
+<canvas id="game" width="540" height="960"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const W = canvas.width;
+const H = canvas.height;
+
+let score = 0;
+const scoreEl = document.getElementById("score");
+
+// 🐰 ultra cute králík
+const rabbit = {
+  x: W / 2,
+  y: H - 140,
+  w: 140,
+  h: 120,
+  speed: 4,
+  vx: 0,
+  anim: 0,
+  joy: 0 // animace radosti při chycení ovoce
+};
+
+const items = [];
+const itemTypes = [
+  {color: "#ff6b6b", leaf: "#2ecc71"},
+  {color: "#ffd93b", leaf: "#a3e635"},
+  {color: "#9bff7b", leaf: "#4ade80"},
+  {color: "#ff9ff3", leaf: "#34d399"},
+  {color: "#6c5ce7", leaf: "#22c55e"},
+  {color: "#00cec9", leaf: "#16a34a"}
+];
+
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
+
+// DOTYK — ovládání na telefonu
+function handleTouch(evt) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = evt.touches[0];
+  const x = (touch.clientX - rect.left) * (W / rect.width);
+  rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, x));
+}
+canvas.addEventListener("touchstart", handleTouch, {passive: true});
+canvas.addEventListener("touchmove", handleTouch, {passive: true});
+
+// spawn ovoce
+function spawnItem() {
+  const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+  items.push({
+    x: Math.random() * (W - 40) + 20,
+    y: -40,
+    r: 30,
+    color: type.color,
+    leaf: type.leaf,
+    vy: 1.2 + Math.random() * 0.6,
+    wobble: Math.random() * Math.PI * 2
+  });
+}
+
+// pohyb králíka
+function updateRabbit() {
+  rabbit.vx = 0;
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) rabbit.vx = -rabbit.speed;
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) rabbit.vx = rabbit.speed;
+
+  rabbit.x += rabbit.vx;
+  rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, rabbit.x));
+
+  rabbit.anim += 0.05;
+
+  if (rabbit.joy > 0) rabbit.joy -= 0.05;
+}
+
+// ovoce
+function updateItems() {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.y += it.vy;
+    it.wobble += 0.07;
+
+    if (
+      it.y + it.r > rabbit.y - rabbit.h / 2 &&
+      it.x > rabbit.x - rabbit.w / 2 &&
+      it.x < rabbit.x + rabbit.w / 2
+    ) {
+      score++;
+      scoreEl.textContent = score;
+      rabbit.joy = 1; // animace radosti
+      items.splice(i, 1);
+      continue;
+    }
+
+    if (it.y - it.r > H) {
+      items.splice(i, 1);
+    }
+  }
+}
+
+// pozadí — ultra cute
+function drawBackground() {
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, "#c9f0ff");
+  skyGrad.addColorStop(1, "#ffe9f7");
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // srdíčka ve vzduchu
+  function heart(x, y, s) {
+    ctx.fillStyle = "rgba(255,127,184,0.8)";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(x - 10*s, y - 10*s, x - 20*s, y, x - 20*s, y + 10*s);
+    ctx.bezierCurveTo(x - 20*s, y + 20*s, x, y + 25*s, x, y + 35*s);
+    ctx.bezierCurveTo(x, y + 25*s, x + 20*s, y + 20*s, x + 20*s, y + 10*s);
+    ctx.bezierCurveTo(x + 20*s, y, x + 10*s, y - 10*s, x, y);
+    ctx.fill();
+  }
+  heart(80, 120, 0.7);
+  heart(420, 90, 0.6);
+  heart(260, 160, 0.5);
+}
+
+// králík
+function drawRabbit() {
+  ctx.save();
+  ctx.translate(rabbit.x, rabbit.y);
+
+  const bounce = Math.sin(rabbit.anim) * 4;
+  const joyBounce = rabbit.joy > 0 ? Math.sin(rabbit.joy * Math.PI) * 20 : 0;
+
+  // stín
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, rabbit.h/2 + bounce, rabbit.w/2, 14, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // tělo
+  ctx.fillStyle = "#fff5f8";
+  ctx.strokeStyle = "#ff9ad5";
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.roundRect(-rabbit.w/2, -rabbit.h/2 + bounce - joyBounce, rabbit.w, rabbit.h, 28);
+  ctx.fill();
+  ctx.stroke();
+
+  // hlava
+  ctx.beginPath();
+  ctx.roundRect(-50, -140 + bounce - joyBounce, 100, 80, 30);
+  ctx.fill();
+  ctx.stroke();
+
+  // uši
+  ctx.fillStyle = "#ffe0f0";
+  ctx.beginPath();
+  ctx.roundRect(-35, -200 + bounce - joyBounce, 35, 70, 20);
+  ctx.roundRect(0, -200 + bounce - joyBounce, 35, 70, 20);
+  ctx.fill();
+  ctx.stroke();
+
+  // oči
+  ctx.fillStyle = "#333";
+  ctx.beginPath();
+  ctx.arc(-20, -110 + bounce - joyBounce, 7, 0, Math.PI*2);
+  ctx.arc(20, -110 + bounce - joyBounce, 7, 0, Math.PI*2);
+  ctx.fill();
+
+  // tvářičky
+  ctx.fillStyle = "#ffb3c6";
+  ctx.beginPath();
+  ctx.arc(-35, -95 + bounce - joyBounce, 10, 0, Math.PI*2);
+  ctx.arc(35, -95 + bounce - joyBounce, 10, 0, Math.PI*2);
+  ctx.fill();
+
+  // nosík
+  ctx.fillStyle = "#ff7fb8";
+  ctx.beginPath();
+  ctx.arc(0, -105 + bounce - joyBounce, 5, 0, Math.PI*2);
+  ctx.fill();
+
+  // košíček
+  ctx.fillStyle = "#cfa27a";
+  ctx.beginPath();
+  ctx.roundRect(-40, 10 + bounce - joyBounce, 80, 40, 15);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ovoce
+function drawItems() {
+  for (const it of items) {
+    const wobbleX = Math.sin(it.wobble) * 6;
+
+    ctx.fillStyle = it.color;
+    ctx.beginPath();
+    ctx.arc(it.x + wobbleX, it.y, it.r, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = it.leaf;
+    ctx.beginPath();
+    ctx.ellipse(it.x + wobbleX - 10, it.y - it.r, 8, 12, Math.PI/4, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// loop
+let spawnTimer = 0;
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+
+  updateRabbit();
+  updateItems();
+
+  spawnTimer++;
+  if (spawnTimer > 60) {
+    spawnItem();
+    spawnTimer = 0;
+  }
+
+  drawRabbit();
+  drawItems();
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
