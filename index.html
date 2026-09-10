@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<title>Králiček 💖</title>
+<title>Králiček & Panda & Medvídek 💖</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <style>
@@ -28,19 +28,80 @@
   #ui {
     position: absolute;
     top: 10px;
-    width: 100%;
-    text-align: center;
+    left: 10px;
     color: #ff4f9a;
-    font-size: 30px;
+    font-size: 24px;
     font-weight: bold;
     text-shadow: 0 0 8px rgba(255, 150, 200, 0.6);
     pointer-events: none;
+  }
+  #shopBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ff9ad5;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 18px;
+    color: white;
+    box-shadow: 0 0 10px rgba(255,150,200,0.6);
+    cursor: pointer;
+  }
+  #shop {
+    display:none;
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:white;
+    padding:20px;
+    border-radius:20px;
+    width:320px;
+    text-align:center;
+    box-shadow:0 0 20px rgba(0,0,0,0.2);
+  }
+  #shop h2 {
+    margin-top:0;
+    color:#ff4f9a;
+  }
+  .skinItem {
+    margin:10px 0;
+    padding:10px;
+    border-radius:12px;
+    background:#ffe6f7;
+  }
+  .skinItem button {
+    margin-top:5px;
+    padding:8px 15px;
+    border:none;
+    background:#ff9ad5;
+    color:white;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  #closeShop {
+    margin-top:15px;
+    background:#ff9ad5;
+    border:none;
+    padding:8px 16px;
+    border-radius:15px;
+    color:white;
+    cursor:pointer;
   }
 </style>
 </head>
 <body>
 
 <div id="ui">Score: <span id="score">0</span></div>
+<button id="shopBtn">Shop</button>
+
+<div id="shop">
+  <h2>Skins</h2>
+  <div id="skinList"></div>
+  <button id="closeShop">Zavřít</button>
+</div>
+
 <canvas id="game"></canvas>
 
 <script>
@@ -53,12 +114,36 @@ const ctx = canvas.getContext("2d");
 const W = canvas.width;
 const H = canvas.height;
 
-// === LOAD SAVED SCORE ===
+// === SCORE (s uložením) ===
 let score = Number(localStorage.getItem("bunny_score")) || 0;
 const scoreEl = document.getElementById("score");
 scoreEl.textContent = score;
 
-// === rabbit ===
+// === SKINS ===
+const skins = [
+  { id: "default", name: "Králiček (ovoce)", price: 0 },
+  { id: "panda", name: "Panda (chytá srdíčka)", price: 50 },
+  { id: "bear", name: "Medvídek (chytá med)", price: 80 },
+  { id: "valentine", name: "Valentýnský králíček", price: 120 }
+];
+
+let selectedSkin = localStorage.getItem("bunny_skin") || "default";
+let backgroundMode = "default";
+
+// barvy postavy
+let bodyColor = "#fff7fb";
+let accentColor = "#ff9ad5";
+
+// === ITEMS (předměty) ===
+let itemTypes = [
+  {color: "#ff6b6b", leaf: "#2ecc71"}, // ovoce
+  {color: "#ffd93b", leaf: "#a3e635"},
+  {color: "#9bff7b", leaf: "#4ade80"}
+];
+
+const items = [];
+
+// === RABBIT/PANDA/BEAR ===
 const rabbit = {
   x: W / 2,
   y: H - 140,
@@ -68,16 +153,102 @@ const rabbit = {
   joy: 0
 };
 
-// === fruit ===
-const items = [];
-const itemTypes = [
-  {color: "#ff6b6b", leaf: "#2ecc71"},
-  {color: "#ffd93b", leaf: "#a3e635"},
-  {color: "#9bff7b", leaf: "#4ade80"},
-  {color: "#ff9ff3", leaf: "#34d399"},
-  {color: "#6c5ce7", leaf: "#22c55e"},
-  {color: "#00cec9", leaf: "#16a34a"}
-];
+// === APPLY SKIN ===
+function applySkin() {
+  // default
+  bodyColor = "#fff7fb";
+  accentColor = "#ff9ad5";
+  itemTypes.splice(0, itemTypes.length,
+    {color: "#ff6b6b", leaf: "#2ecc71"},
+    {color: "#ffd93b", leaf: "#a3e635"},
+    {color: "#9bff7b", leaf: "#4ade80"}
+  );
+  backgroundMode = "default";
+
+  if (selectedSkin === "panda") {
+    bodyColor = "#ffffff";
+    accentColor = "#000000";
+    itemTypes.splice(0, itemTypes.length,
+      {color: "#ff4f9a", leaf: "#ffb3d6"} // srdíčka
+    );
+    backgroundMode = "panda";
+  }
+
+  if (selectedSkin === "bear") {
+    bodyColor = "#f7d08a";
+    accentColor = "#c78b3a";
+    itemTypes.splice(0, itemTypes.length,
+      {color: "#ffcc33", leaf: "#e6a800"} // med
+    );
+    backgroundMode = "bear";
+  }
+
+  if (selectedSkin === "valentine") {
+    bodyColor = "#ffe6f7";
+    accentColor = "#ff7fb8";
+    itemTypes.splice(0, itemTypes.length,
+      {color: "#ff9ad5", leaf: "#ff4f9a"} // valentýnské dopisy
+    );
+    backgroundMode = "valentine";
+  }
+}
+
+applySkin();
+
+// === SHOP UI ===
+const shopBtn = document.getElementById("shopBtn");
+const shopDiv = document.getElementById("shop");
+const skinListDiv = document.getElementById("skinList");
+const closeShopBtn = document.getElementById("closeShop");
+
+shopBtn.onclick = () => {
+  shopDiv.style.display = "block";
+  loadShop();
+};
+
+closeShopBtn.onclick = () => {
+  shopDiv.style.display = "none";
+};
+
+function loadShop() {
+  skinListDiv.innerHTML = "";
+  skins.forEach(skin => {
+    const owned = localStorage.getItem("bunny_owned_" + skin.id);
+    const div = document.createElement("div");
+    div.className = "skinItem";
+
+    div.innerHTML = `
+      <strong>${skin.name}</strong><br>
+      Cena: ${skin.price}<br>
+      ${owned ? "<em>Zakoupeno ✔</em><br>" : ""}
+    `;
+
+    const btn = document.createElement("button");
+    btn.textContent = owned ? "Vybrat" : "Koupit";
+
+    btn.onclick = () => {
+      if (!owned) {
+        if (score >= skin.price) {
+          score -= skin.price;
+          scoreEl.textContent = score;
+          localStorage.setItem("bunny_score", score);
+          localStorage.setItem("bunny_owned_" + skin.id, "true");
+        } else {
+          alert("Nemáš dost score!");
+          return;
+        }
+      }
+      selectedSkin = skin.id;
+      localStorage.setItem("bunny_skin", skin.id);
+      applySkin();
+      alert("Skin vybrán!");
+      loadShop();
+    };
+
+    div.appendChild(btn);
+    skinListDiv.appendChild(div);
+  });
+}
 
 // === TOUCH CONTROL ===
 function handleTouch(evt) {
@@ -91,7 +262,7 @@ function handleTouch(evt) {
 canvas.addEventListener("touchstart", handleTouch, {passive: true});
 canvas.addEventListener("touchmove", handleTouch, {passive: true});
 
-// === spawn fruit ===
+// === SPAWN ITEM ===
 function spawnItem() {
   const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
   items.push({
@@ -105,13 +276,13 @@ function spawnItem() {
   });
 }
 
-// === update rabbit ===
+// === UPDATE RABBIT ===
 function updateRabbit() {
   rabbit.anim += 0.05;
   if (rabbit.joy > 0) rabbit.joy -= 0.05;
 }
 
-// === update fruit ===
+// === UPDATE ITEMS ===
 function updateItems() {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
@@ -128,7 +299,6 @@ function updateItems() {
       scoreEl.textContent = score;
       rabbit.joy = 1;
 
-      // === SAVE SCORE ===
       localStorage.setItem("bunny_score", score);
 
       items.splice(i, 1);
@@ -141,30 +311,91 @@ function updateItems() {
   }
 }
 
-// === background ===
-function drawBackground() {
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-  skyGrad.addColorStop(0, "#c9f0ff");
-  skyGrad.addColorStop(1, "#ffe9f7");
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, W, H);
-
-  function heart(x, y, s) {
-    ctx.fillStyle = "rgba(255,127,184,0.8)";
+// === BACKGROUND HELPERS ===
+function drawFloatingHearts() {
+  ctx.fillStyle = "rgba(255,127,184,0.5)";
+  for (let i = 0; i < 6; i++) {
+    const x = (i * 90 + (Date.now()/50)%90) % W;
+    const y = 80 + i * 60;
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.bezierCurveTo(x - 10*s, y - 10*s, x - 20*s, y, x - 20*s, y + 10*s);
-    ctx.bezierCurveTo(x - 20*s, y + 20*s, x, y + 25*s, x, y + 35*s);
-    ctx.bezierCurveTo(x, y + 25*s, x + 20*s, y + 20*s, x + 20*s, y + 10*s);
-    ctx.bezierCurveTo(x + 20*s, y, x + 10*s, y - 10*s, x, y);
+    ctx.bezierCurveTo(x - 10, y - 10, x - 20, y, x - 20, y + 10);
+    ctx.bezierCurveTo(x - 20, y + 20, x, y + 25, x, y + 35);
+    ctx.bezierCurveTo(x, y + 25, x + 20, y + 20, x + 20, y + 10);
+    ctx.bezierCurveTo(x + 20, y, x + 10, y - 10, x, y);
     ctx.fill();
   }
-  heart(80, 120, 0.7);
-  heart(420, 90, 0.6);
-  heart(260, 160, 0.5);
 }
 
-// === ULTRA‑CUTE RABBIT ===
+function drawHoneyDrops() {
+  ctx.fillStyle = "rgba(255,204,51,0.5)";
+  for (let i = 0; i < 6; i++) {
+    const x = (i * 80 + (Date.now()/60)%80) % W;
+    const y = 60 + i * 70;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 10, 18, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawLoveLetters() {
+  ctx.fillStyle = "rgba(255,154,213,0.6)";
+  for (let i = 0; i < 5; i++) {
+    const x = (i * 100 + (Date.now()/70)%100) % W;
+    const y = 70 + i * 80;
+    ctx.beginPath();
+    ctx.roundRect(x-18, y-12, 36, 24, 6);
+    ctx.fill();
+    ctx.fillStyle = "#ff4f9a";
+    ctx.beginPath();
+    ctx.moveTo(x, y-2);
+    ctx.bezierCurveTo(x-6, y-8, x-12, y, x, y+6);
+    ctx.bezierCurveTo(x+12, y, x+6, y-8, x, y-2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,154,213,0.6)";
+  }
+}
+
+// === BACKGROUND ===
+function drawBackground() {
+  if (backgroundMode === "default") {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, "#c9f0ff");
+    skyGrad.addColorStop(1, "#ffe9f7");
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  if (backgroundMode === "panda") {
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, "#ffe6f7");
+    g.addColorStop(1, "#ffd1f0");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+    drawFloatingHearts();
+  }
+
+  if (backgroundMode === "bear") {
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, "#fff4c2");
+    g.addColorStop(1, "#f7d08a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+    drawHoneyDrops();
+  }
+
+  if (backgroundMode === "valentine") {
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, "#ffe6f7");
+    g.addColorStop(0.5, "#ffd1f0");
+    g.addColorStop(1, "#ffc6e5");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+    drawLoveLetters();
+  }
+}
+
+// === CHARACTER DRAW ===
 function drawRabbit() {
   ctx.save();
   ctx.translate(rabbit.x, rabbit.y);
@@ -179,8 +410,8 @@ function drawRabbit() {
   ctx.fill();
 
   // body
-  ctx.fillStyle = "#fff7fb";
-  ctx.strokeStyle = "#ff9ad5";
+  ctx.fillStyle = bodyColor;
+  ctx.strokeStyle = accentColor;
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.roundRect(-rabbit.w/2, -rabbit.h/2 + bounce - joyBounce, rabbit.w, rabbit.h, 40);
@@ -193,19 +424,31 @@ function drawRabbit() {
   ctx.fill();
   ctx.stroke();
 
-  // ears
-  ctx.fillStyle = "#ffe3f4";
-  ctx.beginPath();
-  ctx.roundRect(-40, -230 + bounce - joyBounce, 40, 90, 25);
-  ctx.roundRect(0, -230 + bounce - joyBounce, 40, 90, 25);
-  ctx.fill();
-  ctx.stroke();
+  // ears / panda uši / medvěd uši
+  if (selectedSkin === "panda" || selectedSkin === "bear") {
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    ctx.arc(-40, -150 + bounce - joyBounce, 20, 0, Math.PI*2);
+    ctx.arc(40, -150 + bounce - joyBounce, 20, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#ffe3f4";
+    ctx.beginPath();
+    ctx.roundRect(-40, -230 + bounce - joyBounce, 40, 90, 25);
+    ctx.roundRect(0, -230 + bounce - joyBounce, 40, 90, 25);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   // eyes
   ctx.fillStyle = "#333";
+  let eyeSize = 12;
+  if (selectedSkin === "panda") eyeSize = 14;
+  if (selectedSkin === "valentine") eyeSize = 13;
+
   ctx.beginPath();
-  ctx.arc(-25, -110 + bounce - joyBounce, 12, 0, Math.PI*2);
-  ctx.arc(25, -110 + bounce - joyBounce, 12, 0, Math.PI*2);
+  ctx.arc(-25, -110 + bounce - joyBounce, eyeSize, 0, Math.PI*2);
+  ctx.arc(25, -110 + bounce - joyBounce, eyeSize, 0, Math.PI*2);
   ctx.fill();
 
   // eye shine
@@ -246,37 +489,83 @@ function drawRabbit() {
   ctx.fill();
   ctx.stroke();
 
-  // basket
-  ctx.fillStyle = "#d8a97b";
-  ctx.beginPath();
-  ctx.roundRect(-45, 45 + bounce - joyBounce, 90, 50, 18);
-  ctx.fill();
-  ctx.stroke();
+  // basket / heart / honey pot
+  if (selectedSkin === "bear") {
+    ctx.fillStyle = "#c78b3a";
+    ctx.beginPath();
+    ctx.roundRect(-35, 45 + bounce - joyBounce, 70, 50, 18);
+    ctx.fill();
+    ctx.stroke();
 
-  // bow
-  ctx.fillStyle = "#ff9ad5";
-  ctx.beginPath();
-  ctx.moveTo(0, 45 + bounce - joyBounce);
-  ctx.lineTo(-20, 30 + bounce - joyBounce);
-  ctx.lineTo(0, 40 + bounce - joyBounce);
-  ctx.lineTo(20, 30 + bounce - joyBounce);
-  ctx.closePath();
-  ctx.fill();
+    ctx.fillStyle = "#ffcc33";
+    ctx.beginPath();
+    ctx.ellipse(0, 45 + bounce - joyBounce, 30, 12, 0, 0, Math.PI*2);
+    ctx.fill();
+  } else if (selectedSkin === "panda") {
+    ctx.fillStyle = "#ff4f9a";
+    ctx.beginPath();
+    ctx.moveTo(0, 45 + bounce - joyBounce);
+    ctx.bezierCurveTo(-20, 25 + bounce - joyBounce, -35, 45 + bounce - joyBounce, -35, 60 + bounce - joyBounce);
+    ctx.bezierCurveTo(-35, 80 + bounce - joyBounce, 0, 90 + bounce - joyBounce, 0, 105 + bounce - joyBounce);
+    ctx.bezierCurveTo(0, 90 + bounce - joyBounce, 35, 80 + bounce - joyBounce, 35, 60 + bounce - joyBounce);
+    ctx.bezierCurveTo(35, 45 + bounce - joyBounce, 20, 25 + bounce - joyBounce, 0, 45 + bounce - joyBounce);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#d8a97b";
+    ctx.beginPath();
+    ctx.roundRect(-45, 45 + bounce - joyBounce, 90, 50, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff9ad5";
+    ctx.beginPath();
+    ctx.moveTo(0, 45 + bounce - joyBounce);
+    ctx.lineTo(-20, 30 + bounce - joyBounce);
+    ctx.lineTo(0, 40 + bounce - joyBounce);
+    ctx.lineTo(20, 30 + bounce - joyBounce);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   ctx.restore();
 
-  // joy hearts
+  // joy hearts / effects
   if (rabbit.joy > 0) {
-    ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
-    ctx.beginPath();
-    ctx.moveTo(rabbit.x, rabbit.y - 180);
-    ctx.bezierCurveTo(rabbit.x - 20, rabbit.y - 200, rabbit.x - 40, rabbit.y - 170, rabbit.x, rabbit.y - 150);
-    ctx.bezierCurveTo(rabbit.x + 40, rabbit.y - 170, rabbit.x + 20, rabbit.y - 200, rabbit.x, rabbit.y - 180);
-    ctx.fill();
+    if (selectedSkin === "panda") {
+      ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        const x = rabbit.x + i * 25;
+        const y = rabbit.y - 180;
+        ctx.moveTo(x, y);
+        ctx.bezierCurveTo(x - 20, y - 20, x - 40, y + 10, x, y + 30);
+        ctx.bezierCurveTo(x + 40, y + 10, x + 20, y - 20, x, y);
+        ctx.fill();
+      }
+    } else if (selectedSkin === "bear") {
+      ctx.fillStyle = "rgba(255,204,51," + rabbit.joy + ")";
+      ctx.beginPath();
+      ctx.ellipse(rabbit.x, rabbit.y - 170, 18, 26, 0, 0, Math.PI*2);
+      ctx.fill();
+    } else if (selectedSkin === "valentine") {
+      ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
+      ctx.beginPath();
+      ctx.moveTo(rabbit.x, rabbit.y - 180);
+      ctx.bezierCurveTo(rabbit.x - 20, rabbit.y - 200, rabbit.x - 40, rabbit.y - 170, rabbit.x, rabbit.y - 150);
+      ctx.bezierCurveTo(rabbit.x + 40, rabbit.y - 170, rabbit.x + 20, rabbit.y - 200, rabbit.x, rabbit.y - 180);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
+      ctx.beginPath();
+      ctx.moveTo(rabbit.x, rabbit.y - 180);
+      ctx.bezierCurveTo(rabbit.x - 20, rabbit.y - 200, rabbit.x - 40, rabbit.y - 170, rabbit.x, rabbit.y - 150);
+      ctx.bezierCurveTo(rabbit.x + 40, rabbit.y - 170, rabbit.x + 20, rabbit.y - 200, rabbit.x, rabbit.y - 180);
+      ctx.fill();
+    }
   }
 }
 
-// === draw fruit ===
+// === DRAW ITEMS ===
 function drawItems() {
   for (const it of items) {
     const wobbleX = Math.sin(it.wobble) * 6;
@@ -293,7 +582,7 @@ function drawItems() {
   }
 }
 
-// === main loop ===
+// === MAIN LOOP ===
 let spawnTimer = 0;
 function loop() {
   ctx.clearRect(0, 0, W, H);
