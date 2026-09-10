@@ -429,22 +429,6 @@ function buildQuestPool() {
   }
 }
 
-function loadQuestsFromStorage() {
-  const saved = localStorage.getItem("current_quests");
-  if (saved) {
-    try {
-      currentQuests = JSON.parse(saved);
-    } catch {
-      currentQuests = [];
-    }
-  }
-}
-
-function saveQuests() {
-  localStorage.setItem("current_quests", JSON.stringify(currentQuests));
-  localStorage.setItem("quest_last_time", Date.now());
-}
-
 function pickNewQuests() {
   currentQuests = [];
   const used = new Set();
@@ -457,7 +441,8 @@ function pickNewQuests() {
     q.done = false;
     currentQuests.push(q);
   }
-  saveQuests();
+  localStorage.setItem("current_quests", JSON.stringify(currentQuests));
+  localStorage.setItem("quest_last_time", Date.now());
 }
 
 function ensureQuests() {
@@ -465,6 +450,17 @@ function ensureQuests() {
   const hour = 60 * 60 * 1000;
   if (!lastQuestTime || now - lastQuestTime > hour || currentQuests.length === 0) {
     pickNewQuests();
+  } else {
+    const saved = localStorage.getItem("current_quests");
+    if (saved) {
+      try {
+        currentQuests = JSON.parse(saved);
+      } catch {
+        pickNewQuests();
+      }
+    } else {
+      pickNewQuests();
+    }
   }
 }
 
@@ -492,24 +488,28 @@ function renderQuests() {
 }
 
 function checkQuestCompletion() {
-  let allDone = currentQuests.length > 0 && currentQuests.every(q => q.done);
-  if (allDone) {
+  if (currentQuests.length === 0) return;
+  if (currentQuests.every(q => q.done)) {
     showBigMessage("GOOD GIRL 💖", "🌸");
     score += 100;
     scoreEl.textContent = score;
     localStorage.setItem("bunny_score", score);
-    // po GOOD GIRL necháme questy, ale můžeš je resetovat:
-    // pickNewQuests();
   }
 }
 
-// === TOUCH CONTROL ===
+// === TOUCH CONTROL (smooth) ===
+let targetX = rabbit.x;
+let lastTouch = 0;
+
 function handleTouch(evt) {
+  const now = performance.now();
+  if (now - lastTouch < 16) return; // ~60 FPS
+  lastTouch = now;
+
   const rect = canvas.getBoundingClientRect();
   const scaleX = W / rect.width;
   const touch = evt.touches[0];
-  const x = (touch.clientX - rect.left) * scaleX;
-  rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, x));
+  targetX = (touch.clientX - rect.left) * scaleX;
 }
 canvas.addEventListener("touchstart", handleTouch, {passive: true});
 canvas.addEventListener("touchmove", handleTouch, {passive: true});
@@ -544,6 +544,9 @@ function spawnItem() {
 function updateRabbit() {
   rabbit.anim += 0.05;
   if (rabbit.joy > 0) rabbit.joy -= 0.05;
+
+  rabbit.x += (targetX - rabbit.x) * 0.25;
+  rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, rabbit.x));
 }
 
 // === UPDATE ITEMS ===
@@ -578,11 +581,13 @@ function updateItems() {
       if (score >= 1000) unlock("score1000");
       if (score >= 10000) unlock("score10000");
 
-      // quest progres
+      // QUEST PROGRES – FIX
       currentQuests.forEach(q => {
         if (q.done) return;
+
+        // SCORE QUEST – jen když skóre přesně dosáhne cíle
         if (q.type === "score") {
-          if (score >= q.target) {
+          if (score === q.target) {
             q.done = true;
             score += q.reward;
             scoreEl.textContent = score;
@@ -591,7 +596,9 @@ function updateItems() {
           return;
         }
 
+        // ITEM QUESTS
         let match = false;
+
         if (q.type === "fruit" && selectedSkin === "default") match = true;
         if (q.type === "heart" && selectedSkin === "panda") match = true;
         if (q.type === "honey" && selectedSkin === "bear") match = true;
@@ -609,7 +616,7 @@ function updateItems() {
         }
       });
 
-      saveQuests();
+      localStorage.setItem("current_quests", JSON.stringify(currentQuests));
       checkQuestCompletion();
 
       items.splice(i, 1);
@@ -938,7 +945,6 @@ function loop() {
 
 // === INIT QUESTS ===
 buildQuestPool();
-loadQuestsFromStorage();
 ensureQuests();
 
 // === START ===
