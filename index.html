@@ -249,7 +249,6 @@ function loadShop() {
     skinListDiv.appendChild(div);
   });
 }
-
 // === TOUCH CONTROL ===
 function handleTouch(evt) {
   const rect = canvas.getBoundingClientRect();
@@ -355,7 +354,6 @@ function drawLoveLetters() {
     ctx.fillStyle = "rgba(255,154,213,0.6)";
   }
 }
-
 // === BACKGROUND ===
 function drawBackground() {
   if (backgroundMode === "default") {
@@ -565,19 +563,70 @@ function drawRabbit() {
   }
 }
 
-// === DRAW ITEMS ===
+// === DRAW ITEMS (včetně pandích srdíček) ===
 function drawItems() {
   for (const it of items) {
     const wobbleX = Math.sin(it.wobble) * 6;
 
+    // PANDA – kreslí srdíčko
+    if (selectedSkin === "panda") {
+      ctx.fillStyle = it.color;
+
+      const x = it.x + wobbleX;
+      const y = it.y;
+      const s = it.r * 0.6;
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x - s, y - s, x - 2*s, y + s*0.2, x, y + s*1.4);
+      ctx.bezierCurveTo(x + 2*s, y + s*0.2, x + s, y - s, x, y);
+      ctx.fill();
+
+      continue;
+    }
+
+    // MEDVÍDEK – kapka medu
+    if (selectedSkin === "bear") {
+      ctx.fillStyle = it.color;
+      ctx.beginPath();
+      ctx.ellipse(it.x + wobbleX, it.y, it.r * 0.7, it.r, 0, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+
+    // VALENTÝNSKÝ KRÁLÍČEK – dopis
+    if (selectedSkin === "valentine") {
+      ctx.fillStyle = it.color;
+      ctx.beginPath();
+      ctx.roundRect(it.x + wobbleX - it.r, it.y - it.r * 0.6, it.r * 2, it.r * 1.2, 6);
+      ctx.fill();
+
+      ctx.fillStyle = "#ff4f9a";
+      ctx.beginPath();
+      ctx.moveTo(it.x + wobbleX, it.y - it.r * 0.2);
+      ctx.bezierCurveTo(
+        it.x + wobbleX - 10, it.y - it.r * 0.6,
+        it.x + wobbleX - 20, it.y,
+        it.x + wobbleX, it.y + it.r * 0.4
+      );
+      ctx.bezierCurveTo(
+        it.x + wobbleX + 20, it.y,
+        it.x + wobbleX + 10, it.y - it.r * 0.6,
+        it.x + wobbleX, it.y - it.r * 0.2
+      );
+      ctx.fill();
+      continue;
+    }
+
+    // DEFAULT – ovoce
     ctx.fillStyle = it.color;
     ctx.beginPath();
-    ctx.arc(it.x + wobbleX, it.y, it.r, 0, Math.PI*2);
+    ctx.arc(it.x + wobbleX, it.y, it.r, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = it.leaf;
     ctx.beginPath();
-    ctx.ellipse(it.x + wobbleX - 10, it.y - it.r, 8, 12, Math.PI/4, 0, Math.PI*2);
+    ctx.ellipse(it.x + wobbleX - 10, it.y - it.r, 8, 12, Math.PI / 4, 0, Math.PI * 2);
     ctx.fill();
   }
 }
