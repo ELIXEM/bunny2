@@ -35,10 +35,9 @@
     text-shadow: 0 0 8px rgba(255, 150, 200, 0.6);
     pointer-events: none;
   }
-  #shopBtn {
+  #shopBtn, #achBtn, #questBtn {
     position: absolute;
     top: 10px;
-    right: 10px;
     background: #ff9ad5;
     border: none;
     padding: 10px 18px;
@@ -48,7 +47,11 @@
     box-shadow: 0 0 10px rgba(255,150,200,0.6);
     cursor: pointer;
   }
-  #shop {
+  #shopBtn { right: 10px; }
+  #achBtn { right: 10px; top: 60px; }
+  #questBtn { right: 10px; top: 110px; }
+
+  #shop, #achBox, #questBox {
     display:none;
     position:absolute;
     top:50%;
@@ -60,8 +63,9 @@
     width:320px;
     text-align:center;
     box-shadow:0 0 20px rgba(0,0,0,0.2);
+    z-index: 10;
   }
-  #shop h2 {
+  #shop h2, #achBox h2, #questBox h2 {
     margin-top:0;
     color:#ff4f9a;
   }
@@ -80,26 +84,67 @@
     border-radius:10px;
     cursor:pointer;
   }
-  #closeShop {
-    margin-top:15px;
-    background:#ff9ad5;
-    border:none;
-    padding:8px 16px;
-    border-radius:15px;
-    color:white;
-    cursor:pointer;
-  }
 </style>
 </head>
 <body>
 
 <div id="ui">Score: <span id="score">0</span></div>
 <button id="shopBtn">Shop</button>
+<button id="achBtn">Achievements</button>
+<button id="questBtn">Quests</button>
 
 <div id="shop">
   <h2>Skins</h2>
   <div id="skinList"></div>
   <button id="closeShop">Zavřít</button>
+</div>
+
+<div id="achBox">
+  <h2>Achievements</h2>
+  <div id="achList"></div>
+  <button id="closeAch">Zavřít</button>
+</div>
+
+<div id="questBox">
+  <h2>Quests</h2>
+  <div id="questList"></div>
+  <button id="closeQuest">Zavřít</button>
+</div>
+
+<div id="bigMessageOverlay" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.4);
+  z-index:9999;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+">
+  <div id="bigMessageBox" style="
+    background:radial-gradient(circle at top, #ffe6f7 0%, #ffb3dd 40%, #ff9ad5 80%);
+    border-radius:30px;
+    padding:30px 24px;
+    width:80%;
+    max-width:420px;
+    text-align:center;
+    box-shadow:0 0 40px rgba(255,150,200,0.9);
+    color:white;
+    font-family:'Comic Sans MS', system-ui;
+  ">
+    <div id="bigMessageEmoji" style="font-size:48px; margin-bottom:10px;">💖</div>
+    <div id="bigMessageText" style="font-size:22px; line-height:1.4; white-space:pre-line;"></div>
+    <button id="bigMessageClose" style="
+      margin-top:20px;
+      padding:10px 20px;
+      border:none;
+      border-radius:20px;
+      background:white;
+      color:#ff4f9a;
+      font-size:18px;
+      cursor:pointer;
+    ">OK 💕</button>
+  </div>
 </div>
 
 <canvas id="game"></canvas>
@@ -113,6 +158,21 @@ const ctx = canvas.getContext("2d");
 
 const W = canvas.width;
 const H = canvas.height;
+
+// === BIG MESSAGE OVERLAY ===
+const bigOverlay = document.getElementById("bigMessageOverlay");
+const bigText = document.getElementById("bigMessageText");
+const bigEmoji = document.getElementById("bigMessageEmoji");
+const bigClose = document.getElementById("bigMessageClose");
+
+function showBigMessage(text, emoji = "💖") {
+  bigText.textContent = text;
+  bigEmoji.textContent = emoji;
+  bigOverlay.style.display = "flex";
+}
+bigClose.onclick = () => {
+  bigOverlay.style.display = "none";
+};
 
 // === SCORE (s uložením) ===
 let score = Number(localStorage.getItem("bunny_score")) || 0;
@@ -155,7 +215,6 @@ const rabbit = {
 
 // === APPLY SKIN ===
 function applySkin() {
-  // default
   bodyColor = "#fff7fb";
   accentColor = "#ff9ad5";
   itemTypes.splice(0, itemTypes.length,
@@ -192,7 +251,6 @@ function applySkin() {
     backgroundMode = "valentine";
   }
 }
-
 applySkin();
 
 // === SHOP UI ===
@@ -205,7 +263,6 @@ shopBtn.onclick = () => {
   shopDiv.style.display = "block";
   loadShop();
 };
-
 closeShopBtn.onclick = () => {
   shopDiv.style.display = "none";
 };
@@ -249,6 +306,203 @@ function loadShop() {
     skinListDiv.appendChild(div);
   });
 }
+
+// === ACHIEVEMENTS ===
+const achievements = [
+  { id: "panda20", name: "Panda Love ❤️", desc: "Chyť 20 srdíček jako panda", done: false },
+  { id: "bear20", name: "Honey Master 🍯", desc: "Chyť 20 kapek medu jako medvídek", done: false },
+  { id: "val20", name: "Valentine Hero 💌", desc: "Chyť 20 dopisů", done: false },
+  { id: "fruit50", name: "Fruit Collector 🍓", desc: "Chyť 50 ovoce", done: false },
+  { id: "score100", name: "Score 100 ⭐", desc: "Dosáhni skóre 100", done: false },
+  { id: "score500", name: "Score 500 ⭐", desc: "Dosáhni skóre 500", done: false },
+  { id: "score1000", name: "Score 1000 ⭐", desc: "Dosáhni skóre 1000", done: false },
+  { id: "score10000", name: "Special Love ❤️", desc: "Skrytý achievement", done: false } // nebude v UI
+];
+
+achievements.forEach(a => {
+  if (localStorage.getItem("ach_" + a.id)) {
+    a.done = true;
+  }
+});
+
+const achBtn = document.getElementById("achBtn");
+const achBox = document.getElementById("achBox");
+const achList = document.getElementById("achList");
+const closeAch = document.getElementById("closeAch");
+
+achBtn.onclick = () => {
+  achBox.style.display = "block";
+  loadAchievements();
+};
+closeAch.onclick = () => {
+  achBox.style.display = "none";
+};
+
+function loadAchievements() {
+  achList.innerHTML = "";
+  achievements.forEach(a => {
+    if (a.id === "score10000") return; // skrytý
+    const div = document.createElement("div");
+    div.style.margin = "10px 0";
+    div.style.padding = "10px";
+    div.style.borderRadius = "12px";
+    div.style.background = a.done ? "#c8ffcf" : "#ffe6f7";
+
+    div.innerHTML = `
+      <strong>${a.name}</strong><br>
+      <small>${a.desc}</small><br>
+      ${a.done ? "<em>Splněno ✔</em>" : "<em>Nesplněno</em>"}
+    `;
+    achList.appendChild(div);
+  });
+}
+
+let pandaCount = 0;
+let bearCount = 0;
+let valCount = 0;
+let fruitCount = 0;
+
+function unlock(id) {
+  const a = achievements.find(x => x.id === id);
+  if (!a || a.done) return;
+
+  a.done = true;
+  localStorage.setItem("ach_" + id, "true");
+
+  if (id === "score10000") {
+    showBigMessage(
+      "Nečekal jsem, že tě to tak chytne a bude bavit.\nMoc si toho vážím.\nJsi úžasná.",
+      "💖"
+    );
+    return;
+  }
+
+  alert("🎉 Achievement unlocked: " + a.name);
+}
+
+// === QUESTS ===
+const questBtn = document.getElementById("questBtn");
+const questBox = document.getElementById("questBox");
+const questList = document.getElementById("questList");
+const closeQuest = document.getElementById("closeQuest");
+
+questBtn.onclick = () => {
+  questBox.style.display = "block";
+  renderQuests();
+};
+closeQuest.onclick = () => {
+  questBox.style.display = "none";
+};
+
+let questPool = [];
+let currentQuests = [];
+let lastQuestTime = Number(localStorage.getItem("quest_last_time")) || 0;
+
+// vytvoření ~200 jednoduchých questů
+function buildQuestPool() {
+  const types = ["fruit", "heart", "honey", "letter", "any", "score"];
+  for (let i = 0; i < 200; i++) {
+    const t = types[i % types.length];
+    let target = 10 + (i % 5) * 10; // 10,20,30,40,50
+    let reward = 10 + (i % 4) * 10; // 10–40
+    let desc = "";
+
+    if (t === "fruit") desc = `Chyť ${target} ovoce 🍓`;
+    if (t === "heart") desc = `Chyť ${target} srdíček ❤️ (panda)`;
+    if (t === "honey") desc = `Chyť ${target} medu 🍯 (medvídek)`;
+    if (t === "letter") desc = `Chyť ${target} dopisů 💌 (valentýnský)`;
+    if (t === "any") desc = `Chyť ${target} předmětů 🎁`;
+    if (t === "score") {
+      target = 100 + (i % 5) * 100; // 100–500
+      desc = `Dosáhni skóre ${target} ⭐`;
+    }
+
+    questPool.push({
+      id: "q" + i,
+      type: t,
+      target,
+      reward,
+      desc,
+      progress: 0,
+      done: false
+    });
+  }
+}
+
+function loadQuestsFromStorage() {
+  const saved = localStorage.getItem("current_quests");
+  if (saved) {
+    try {
+      currentQuests = JSON.parse(saved);
+    } catch {
+      currentQuests = [];
+    }
+  }
+}
+
+function saveQuests() {
+  localStorage.setItem("current_quests", JSON.stringify(currentQuests));
+  localStorage.setItem("quest_last_time", Date.now());
+}
+
+function pickNewQuests() {
+  currentQuests = [];
+  const used = new Set();
+  while (currentQuests.length < 3 && currentQuests.length < questPool.length) {
+    const idx = Math.floor(Math.random() * questPool.length);
+    if (used.has(idx)) continue;
+    used.add(idx);
+    const q = Object.assign({}, questPool[idx]);
+    q.progress = 0;
+    q.done = false;
+    currentQuests.push(q);
+  }
+  saveQuests();
+}
+
+function ensureQuests() {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  if (!lastQuestTime || now - lastQuestTime > hour || currentQuests.length === 0) {
+    pickNewQuests();
+  }
+}
+
+function renderQuests() {
+  questList.innerHTML = "";
+  currentQuests.forEach(q => {
+    const div = document.createElement("div");
+    div.style.margin = "10px 0";
+    div.style.padding = "10px";
+    div.style.borderRadius = "12px";
+    div.style.background = q.done ? "#c8ffcf" : "#ffe6f7";
+
+    const prog = q.type === "score"
+      ? Math.min(score, q.target)
+      : Math.min(q.progress, q.target);
+
+    div.innerHTML = `
+      <strong>${q.desc}</strong><br>
+      <small>Progres: ${prog}/${q.target}</small><br>
+      <small>Odměna: +${q.reward} score</small><br>
+      ${q.done ? "<em>Splněno ✔</em>" : "<em>Nesplněno</em>"}
+    `;
+    questList.appendChild(div);
+  });
+}
+
+function checkQuestCompletion() {
+  let allDone = currentQuests.length > 0 && currentQuests.every(q => q.done);
+  if (allDone) {
+    showBigMessage("GOOD GIRL 💖", "🌸");
+    score += 100;
+    scoreEl.textContent = score;
+    localStorage.setItem("bunny_score", score);
+    // po GOOD GIRL necháme questy, ale můžeš je resetovat:
+    // pickNewQuests();
+  }
+}
+
 // === TOUCH CONTROL ===
 function handleTouch(evt) {
   const rect = canvas.getBoundingClientRect();
@@ -257,9 +511,20 @@ function handleTouch(evt) {
   const x = (touch.clientX - rect.left) * scaleX;
   rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, x));
 }
-
 canvas.addEventListener("touchstart", handleTouch, {passive: true});
 canvas.addEventListener("touchmove", handleTouch, {passive: true});
+
+// === KEYBOARD CONTROL (W, S, A, D) — PC TEST MODE ===
+document.addEventListener("keydown", (e) => {
+  const speed = 15;
+  if (e.key === "a" || e.key === "A") rabbit.x -= speed;
+  if (e.key === "d" || e.key === "D") rabbit.x += speed;
+  if (e.key === "w" || e.key === "W") rabbit.y -= speed;
+  if (e.key === "s" || e.key === "S") rabbit.y += speed;
+
+  rabbit.x = Math.max(rabbit.w / 2, Math.min(W - rabbit.w / 2, rabbit.x));
+  rabbit.y = Math.max(rabbit.h / 2, Math.min(H - rabbit.h / 2, rabbit.y));
+});
 
 // === SPAWN ITEM ===
 function spawnItem() {
@@ -288,7 +553,6 @@ function updateItems() {
     it.y += it.vy;
     it.wobble += 0.07;
 
-    // collision
     if (
       it.y + it.r > rabbit.y - rabbit.h / 2 &&
       it.x > rabbit.x - rabbit.w / 2 &&
@@ -297,8 +561,56 @@ function updateItems() {
       score++;
       scoreEl.textContent = score;
       rabbit.joy = 1;
-
       localStorage.setItem("bunny_score", score);
+
+      // počítání pro achievements
+      if (selectedSkin === "panda") pandaCount++;
+      if (selectedSkin === "bear") bearCount++;
+      if (selectedSkin === "valentine") valCount++;
+      if (selectedSkin === "default") fruitCount++;
+
+      if (pandaCount >= 20) unlock("panda20");
+      if (bearCount >= 20) unlock("bear20");
+      if (valCount >= 20) unlock("val20");
+      if (fruitCount >= 50) unlock("fruit50");
+      if (score >= 100) unlock("score100");
+      if (score >= 500) unlock("score500");
+      if (score >= 1000) unlock("score1000");
+      if (score >= 10000) unlock("score10000");
+
+      // quest progres
+      currentQuests.forEach(q => {
+        if (q.done) return;
+        if (q.type === "score") {
+          if (score >= q.target) {
+            q.done = true;
+            score += q.reward;
+            scoreEl.textContent = score;
+            localStorage.setItem("bunny_score", score);
+          }
+          return;
+        }
+
+        let match = false;
+        if (q.type === "fruit" && selectedSkin === "default") match = true;
+        if (q.type === "heart" && selectedSkin === "panda") match = true;
+        if (q.type === "honey" && selectedSkin === "bear") match = true;
+        if (q.type === "letter" && selectedSkin === "valentine") match = true;
+        if (q.type === "any") match = true;
+
+        if (match) {
+          q.progress++;
+          if (q.progress >= q.target) {
+            q.done = true;
+            score += q.reward;
+            scoreEl.textContent = score;
+            localStorage.setItem("bunny_score", score);
+          }
+        }
+      });
+
+      saveQuests();
+      checkQuestCompletion();
 
       items.splice(i, 1);
       continue;
@@ -325,7 +637,6 @@ function drawFloatingHearts() {
     ctx.fill();
   }
 }
-
 function drawHoneyDrops() {
   ctx.fillStyle = "rgba(255,204,51,0.5)";
   for (let i = 0; i < 6; i++) {
@@ -336,7 +647,6 @@ function drawHoneyDrops() {
     ctx.fill();
   }
 }
-
 function drawLoveLetters() {
   ctx.fillStyle = "rgba(255,154,213,0.6)";
   for (let i = 0; i < 5; i++) {
@@ -354,6 +664,7 @@ function drawLoveLetters() {
     ctx.fillStyle = "rgba(255,154,213,0.6)";
   }
 }
+
 // === BACKGROUND ===
 function drawBackground() {
   if (backgroundMode === "default") {
@@ -363,7 +674,6 @@ function drawBackground() {
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
   }
-
   if (backgroundMode === "panda") {
     const g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0, "#ffe6f7");
@@ -372,7 +682,6 @@ function drawBackground() {
     ctx.fillRect(0,0,W,H);
     drawFloatingHearts();
   }
-
   if (backgroundMode === "bear") {
     const g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0, "#fff4c2");
@@ -381,7 +690,6 @@ function drawBackground() {
     ctx.fillRect(0,0,W,H);
     drawHoneyDrops();
   }
-
   if (backgroundMode === "valentine") {
     const g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0, "#ffe6f7");
@@ -401,13 +709,11 @@ function drawRabbit() {
   const bounce = Math.sin(rabbit.anim) * 4;
   const joyBounce = rabbit.joy > 0 ? Math.sin(rabbit.joy * Math.PI) * 25 : 0;
 
-  // shadow
   ctx.fillStyle = "rgba(0,0,0,0.15)";
   ctx.beginPath();
   ctx.ellipse(0, rabbit.h/2 + bounce, rabbit.w/2, 16, 0, 0, Math.PI*2);
   ctx.fill();
 
-  // body
   ctx.fillStyle = bodyColor;
   ctx.strokeStyle = accentColor;
   ctx.lineWidth = 4;
@@ -416,13 +722,11 @@ function drawRabbit() {
   ctx.fill();
   ctx.stroke();
 
-  // head
   ctx.beginPath();
   ctx.roundRect(-60, -150 + bounce - joyBounce, 120, 100, 45);
   ctx.fill();
   ctx.stroke();
 
-  // ears / panda uši / medvěd uši
   if (selectedSkin === "panda" || selectedSkin === "bear") {
     ctx.fillStyle = accentColor;
     ctx.beginPath();
@@ -438,7 +742,6 @@ function drawRabbit() {
     ctx.stroke();
   }
 
-  // eyes
   ctx.fillStyle = "#333";
   let eyeSize = 12;
   if (selectedSkin === "panda") eyeSize = 14;
@@ -449,14 +752,12 @@ function drawRabbit() {
   ctx.arc(25, -110 + bounce - joyBounce, eyeSize, 0, Math.PI*2);
   ctx.fill();
 
-  // eye shine
   ctx.fillStyle = "white";
   ctx.beginPath();
   ctx.arc(-30, -115 + bounce - joyBounce, 4, 0, Math.PI*2);
   ctx.arc(20, -115 + bounce - joyBounce, 4, 0, Math.PI*2);
   ctx.fill();
 
-  // cheeks
   const cheekGrad = ctx.createRadialGradient(-40, -90, 2, -40, -90, 20);
   cheekGrad.addColorStop(0, "#ffb3d6");
   cheekGrad.addColorStop(1, "rgba(255,179,214,0)");
@@ -473,13 +774,11 @@ function drawRabbit() {
   ctx.arc(40, -90 + bounce - joyBounce, 20, 0, Math.PI*2);
   ctx.fill();
 
-  // nose
   ctx.fillStyle = "#ff7fb8";
   ctx.beginPath();
   ctx.arc(0, -105 + bounce - joyBounce, 6, 0, Math.PI*2);
   ctx.fill();
 
-  // paws
   ctx.fillStyle = "#ffe3f4";
   ctx.beginPath();
   ctx.roundRect(-50, 10 + bounce - joyBounce, 35, 25, 12);
@@ -487,7 +786,6 @@ function drawRabbit() {
   ctx.fill();
   ctx.stroke();
 
-  // basket / heart / honey pot
   if (selectedSkin === "bear") {
     ctx.fillStyle = "#c78b3a";
     ctx.beginPath();
@@ -527,7 +825,6 @@ function drawRabbit() {
 
   ctx.restore();
 
-  // joy hearts / effects
   if (rabbit.joy > 0) {
     if (selectedSkin === "panda") {
       ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
@@ -545,13 +842,6 @@ function drawRabbit() {
       ctx.beginPath();
       ctx.ellipse(rabbit.x, rabbit.y - 170, 18, 26, 0, 0, Math.PI*2);
       ctx.fill();
-    } else if (selectedSkin === "valentine") {
-      ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
-      ctx.beginPath();
-      ctx.moveTo(rabbit.x, rabbit.y - 180);
-      ctx.bezierCurveTo(rabbit.x - 20, rabbit.y - 200, rabbit.x - 40, rabbit.y - 170, rabbit.x, rabbit.y - 150);
-      ctx.bezierCurveTo(rabbit.x + 40, rabbit.y - 170, rabbit.x + 20, rabbit.y - 200, rabbit.x, rabbit.y - 180);
-      ctx.fill();
     } else {
       ctx.fillStyle = "rgba(255,127,184," + rabbit.joy + ")";
       ctx.beginPath();
@@ -568,24 +858,19 @@ function drawItems() {
   for (const it of items) {
     const wobbleX = Math.sin(it.wobble) * 6;
 
-    // PANDA – kreslí srdíčko
     if (selectedSkin === "panda") {
       ctx.fillStyle = it.color;
-
       const x = it.x + wobbleX;
       const y = it.y;
       const s = it.r * 0.6;
-
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.bezierCurveTo(x - s, y - s, x - 2*s, y + s*0.2, x, y + s*1.4);
       ctx.bezierCurveTo(x + 2*s, y + s*0.2, x + s, y - s, x, y);
       ctx.fill();
-
       continue;
     }
 
-    // MEDVÍDEK – kapka medu
     if (selectedSkin === "bear") {
       ctx.fillStyle = it.color;
       ctx.beginPath();
@@ -594,7 +879,6 @@ function drawItems() {
       continue;
     }
 
-    // VALENTÝNSKÝ KRÁLÍČEK – dopis
     if (selectedSkin === "valentine") {
       ctx.fillStyle = it.color;
       ctx.beginPath();
@@ -618,7 +902,6 @@ function drawItems() {
       continue;
     }
 
-    // DEFAULT – ovoce
     ctx.fillStyle = it.color;
     ctx.beginPath();
     ctx.arc(it.x + wobbleX, it.y, it.r, 0, Math.PI * 2);
@@ -633,6 +916,7 @@ function drawItems() {
 
 // === MAIN LOOP ===
 let spawnTimer = 0;
+
 function loop() {
   ctx.clearRect(0, 0, W, H);
   drawBackground();
@@ -652,6 +936,12 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// === INIT QUESTS ===
+buildQuestPool();
+loadQuestsFromStorage();
+ensureQuests();
+
+// === START ===
 loop();
 </script>
 </body>
